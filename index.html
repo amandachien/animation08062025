@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Pure JS Liquid Wave WebAR</title>
+    <title>World Space Pinch WebAR</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
     <style>
         body {
@@ -25,13 +25,24 @@
             z-index: 1;
         }
         
-        #canvas-overlay {
+        #detection-canvas {
             position: fixed;
             top: 0;
             left: 0;
             width: 100vw;
             height: 100vh;
             z-index: 2;
+            pointer-events: none;
+            opacity: 0.3;
+        }
+        
+        #ar-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 3;
             pointer-events: none;
         }
         
@@ -73,92 +84,166 @@
             padding: 10px;
             border-radius: 5px;
             z-index: 100;
-            font-size: 10px;
+            font-size: 9px;
             font-family: monospace;
-            max-height: 100px;
+            max-height: 80px;
             overflow-y: auto;
         }
         
-        .wave {
+        #controls {
+            position: fixed;
+            bottom: 80px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+            text-align: center;
+        }
+        
+        button {
+            background: #ff00ff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            font-size: 12px;
+            margin: 2px;
+        }
+        
+        .wave-3d {
             position: absolute;
             border-radius: 50%;
-            background: radial-gradient(circle, rgba(255,0,255,0.8), rgba(255,0,255,0.3));
-            box-shadow: 0 0 20px #ff00ff, inset 0 0 20px rgba(255,255,255,0.2);
-            animation: liquidWave 2s ease-in-out infinite;
+            background: radial-gradient(circle, rgba(255,0,255,0.9), rgba(255,0,255,0.3));
+            box-shadow: 0 0 30px #ff00ff, inset 0 0 20px rgba(255,255,255,0.3);
+            animation: liquidWave3D 3s ease-in-out infinite;
             pointer-events: none;
-            z-index: 3;
+            z-index: 4;
         }
         
-        .wave.solid {
-            animation: none;
-            background: radial-gradient(circle, rgba(255,0,255,0.9), rgba(255,0,255,0.5));
-            box-shadow: 0 0 30px #ff00ff, inset 0 0 30px rgba(255,255,255,0.3);
+        .wave-3d.solid {
+            animation: solidPulse 4s ease-in-out infinite;
+            background: radial-gradient(circle, rgba(255,0,255,1), rgba(255,0,255,0.6));
+            box-shadow: 0 0 40px #ff00ff, inset 0 0 30px rgba(255,255,255,0.4);
         }
         
-        @keyframes liquidWave {
+        @keyframes liquidWave3D {
             0% { 
                 transform: scale(1) rotate(0deg); 
                 border-radius: 50%; 
+                opacity: 0.8;
             }
             25% { 
-                transform: scale(1.2) rotate(90deg); 
+                transform: scale(1.3) rotate(90deg); 
                 border-radius: 60% 40% 60% 40%; 
+                opacity: 0.9;
             }
             50% { 
                 transform: scale(1.1) rotate(180deg); 
                 border-radius: 40% 60% 40% 60%; 
+                opacity: 1;
             }
             75% { 
-                transform: scale(1.3) rotate(270deg); 
+                transform: scale(1.4) rotate(270deg); 
                 border-radius: 70% 30% 70% 30%; 
+                opacity: 0.9;
             }
             100% { 
                 transform: scale(1) rotate(360deg); 
                 border-radius: 50%; 
+                opacity: 0.8;
             }
         }
         
-        #touch-area {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 4;
-            background: transparent;
+        @keyframes solidPulse {
+            0%, 100% { 
+                transform: scale(1); 
+                opacity: 0.9; 
+            }
+            50% { 
+                transform: scale(1.05); 
+                opacity: 1; 
+            }
+        }
+        
+        .hand-indicator {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: rgba(0, 255, 0, 0.8);
+            border-radius: 50%;
+            border: 2px solid #00ff00;
+            pointer-events: none;
+            z-index: 5;
+        }
+        
+        .pinch-indicator {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: rgba(255, 255, 0, 0.8);
+            border-radius: 50%;
+            border: 3px solid #ffff00;
+            pointer-events: none;
+            z-index: 6;
+            animation: pinchPulse 0.5s ease-in-out infinite;
+        }
+        
+        @keyframes pinchPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
         }
     </style>
 </head>
 <body>
     <video id="camera-view" autoplay playsinline muted></video>
-    <canvas id="canvas-overlay"></canvas>
+    <canvas id="detection-canvas"></canvas>
+    <canvas id="ar-canvas"></canvas>
     
     <div id="instructions">
-        <strong>🌊 Pure JS Liquid Wave WebAR</strong><br>
-        Tap and hold to create liquid waves!<br>
-        Release to solidify them in place.
+        <strong>🌊 World Space Pinch WebAR</strong><br>
+        Hold your hand in front of the camera and pinch your fingers!<br>
+        The liquid wave will appear in 3D space where you pinch.
     </div>
     
-    <div id="status">Initializing camera...</div>
+    <div id="status">Initializing 3D hand tracking...</div>
     
     <div id="debug">Debug info will appear here...</div>
     
-    <div id="touch-area"></div>
+    <div id="controls">
+        <button onclick="app.toggleDetectionView()">Toggle Detection</button>
+        <button onclick="app.clearAllWaves()">Clear Waves</button>
+        <button onclick="app.calibrateDepth()">Calibrate</button>
+    </div>
 
     <script>
-        class LiquidWaveAR {
+        class WorldSpacePinchAR {
             constructor() {
                 this.video = document.getElementById('camera-view');
-                this.canvas = document.getElementById('canvas-overlay');
-                this.ctx = this.canvas.getContext('2d');
+                this.detectionCanvas = document.getElementById('detection-canvas');
+                this.detectionCtx = this.detectionCanvas.getContext('2d');
+                this.arCanvas = document.getElementById('ar-canvas');
+                this.arCtx = this.arCanvas.getContext('2d');
                 this.status = document.getElementById('status');
                 this.debug = document.getElementById('debug');
-                this.touchArea = document.getElementById('touch-area');
                 
-                this.waves = [];
-                this.activePinches = new Map(); // Track pinch ID to wave data
-                this.touches = {}; // Track all active touches
+                // Hand detection parameters
+                this.handDetectionEnabled = true;
+                this.showDetection = false;
+                this.frameCount = 0;
+                this.lastDetectionTime = 0;
+                
+                // Pinch detection
+                this.activePinches = new Map();
+                this.handPositions = [];
+                this.pinchThreshold = 30; // pixels in camera view
+                this.depthEstimation = 1.0;
                 this.waveCounter = 0;
+                
+                // Color detection for hand tracking (skin tone detection)
+                this.skinColorLower = [0, 50, 50]; // HSV lower bound
+                this.skinColorUpper = [25, 255, 255]; // HSV upper bound
                 
                 this.init();
             }
@@ -167,29 +252,41 @@
                 console.log(message);
                 this.debug.innerHTML += new Date().toLocaleTimeString() + ': ' + message + '<br>';
                 this.debug.scrollTop = this.debug.scrollHeight;
+                
+                // Keep only last 5 messages
+                const lines = this.debug.innerHTML.split('<br>');
+                if (lines.length > 6) {
+                    this.debug.innerHTML = lines.slice(-6).join('<br>');
+                }
             }
             
             async init() {
-                this.log('🚀 Initializing Pure JS WebAR...');
+                this.log('🚀 Initializing World Space Pinch AR...');
                 
-                // Setup canvas
-                this.resizeCanvas();
-                window.addEventListener('resize', () => this.resizeCanvas());
+                // Setup canvases
+                this.resizeCanvases();
+                window.addEventListener('resize', () => this.resizeCanvases());
                 
                 // Setup camera
                 await this.setupCamera();
                 
-                // Setup touch events
-                this.setupTouchEvents();
+                // Start hand detection loop
+                this.startHandDetection();
                 
-                this.log('✅ WebAR initialized successfully!');
-                this.status.textContent = 'Ready! Pinch your fingers to create liquid waves!';
+                this.log('✅ World Space AR initialized!');
+                this.status.textContent = 'Ready! Show your hand to the camera and pinch!';
             }
             
-            resizeCanvas() {
-                this.canvas.width = window.innerWidth;
-                this.canvas.height = window.innerHeight;
-                this.log(`📐 Canvas resized: ${this.canvas.width}x${this.canvas.height}`);
+            resizeCanvases() {
+                const width = window.innerWidth;
+                const height = window.innerHeight;
+                
+                this.detectionCanvas.width = width;
+                this.detectionCanvas.height = height;
+                this.arCanvas.width = width;
+                this.arCanvas.height = height;
+                
+                this.log(`📐 Canvases resized: ${width}x${height}`);
             }
             
             async setupCamera() {
@@ -198,270 +295,428 @@
                     
                     const stream = await navigator.mediaDevices.getUserMedia({
                         video: {
-                            facingMode: 'environment', // Back camera
-                            width: { ideal: 1280 },
-                            height: { ideal: 720 }
+                            facingMode: 'environment',
+                            width: { ideal: 640 },
+                            height: { ideal: 480 }
                         }
                     });
                     
                     this.video.srcObject = stream;
                     await this.video.play();
                     
-                    this.log('✅ Camera started successfully!');
-                    this.status.textContent = 'Camera active! Pinch to create waves!';
+                    this.log('✅ Camera started for hand tracking!');
                     
                 } catch (error) {
                     this.log('❌ Camera error: ' + error.message);
                     this.status.textContent = 'Camera error: ' + error.message;
-                    
-                    // Fallback: show gradient background
-                    document.body.style.background = 'linear-gradient(45deg, #ff00ff, #0000ff)';
-                    this.video.style.display = 'none';
                 }
             }
             
-            setupTouchEvents() {
-                this.log('👆 Setting up pinch detection...');
-                
-                this.touches = {};
-                this.activePinches = new Map();
-                this.pinchThreshold = 50; // pixels
-                this.lastPinchCheck = 0;
-                
-                // Touch start - track touches
-                this.touchArea.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    
-                    for (let i = 0; i < e.touches.length; i++) {
-                        const touch = e.touches[i];
-                        this.touches[touch.identifier] = {
-                            x: touch.clientX,
-                            y: touch.clientY,
-                            startTime: Date.now()
-                        };
-                    }
-                    
-                    this.checkForPinch();
-                }, { passive: false });
-                
-                // Touch move - update positions and check pinch
-                this.touchArea.addEventListener('touchmove', (e) => {
-                    e.preventDefault();
-                    
-                    for (let i = 0; i < e.touches.length; i++) {
-                        const touch = e.touches[i];
-                        if (this.touches[touch.identifier]) {
-                            this.touches[touch.identifier].x = touch.clientX;
-                            this.touches[touch.identifier].y = touch.clientY;
-                        }
-                    }
-                    
-                    // Throttle pinch checking to avoid excessive calculations
-                    const now = Date.now();
-                    if (now - this.lastPinchCheck > 50) { // Check every 50ms
-                        this.checkForPinch();
-                        this.lastPinchCheck = now;
-                    }
-                }, { passive: false });
-                
-                // Touch end - remove touches and end pinches
-                this.touchArea.addEventListener('touchend', (e) => {
-                    e.preventDefault();
-                    
-                    for (let i = 0; i < e.changedTouches.length; i++) {
-                        const touch = e.changedTouches[i];
-                        delete this.touches[touch.identifier];
-                    }
-                    
-                    // Check if any active pinches should end
-                    this.checkPinchEnd();
-                }, { passive: false });
-                
-                // Handle touch cancel
-                this.touchArea.addEventListener('touchcancel', (e) => {
-                    e.preventDefault();
-                    
-                    for (let i = 0; i < e.changedTouches.length; i++) {
-                        const touch = e.changedTouches[i];
-                        delete this.touches[touch.identifier];
-                    }
-                    
-                    this.checkPinchEnd();
-                }, { passive: false });
-                
-                this.log('✅ Pinch detection ready!');
-            }
-            
-            checkForPinch() {
-                const touchIds = Object.keys(this.touches);
-                
-                // Need at least 2 touches for a pinch
-                if (touchIds.length < 2) {
-                    return;
-                }
-                
-                // Check all possible pairs of touches
-                for (let i = 0; i < touchIds.length - 1; i++) {
-                    for (let j = i + 1; j < touchIds.length; j++) {
-                        const id1 = touchIds[i];
-                        const id2 = touchIds[j];
-                        const touch1 = this.touches[id1];
-                        const touch2 = this.touches[id2];
+            startHandDetection() {
+                const detectFrame = () => {
+                    if (this.handDetectionEnabled) {
+                        this.frameCount++;
                         
-                        const distance = this.getDistance(touch1, touch2);
-                        const pinchId = `${id1}-${id2}`;
-                        
-                        // Detect new pinch
-                        if (distance <= this.pinchThreshold && !this.activePinches.has(pinchId)) {
-                            this.startPinch(touch1, touch2, pinchId);
-                        }
-                        // Update existing pinch
-                        else if (distance <= this.pinchThreshold && this.activePinches.has(pinchId)) {
-                            this.updatePinch(touch1, touch2, pinchId);
-                        }
-                        // End pinch if distance too large
-                        else if (distance > this.pinchThreshold * 1.5 && this.activePinches.has(pinchId)) {
-                            this.endPinch(pinchId);
+                        // Run detection every 3 frames for performance
+                        if (this.frameCount % 3 === 0) {
+                            this.detectHands();
                         }
                     }
+                    
+                    requestAnimationFrame(detectFrame);
+                };
+                
+                detectFrame();
+                this.log('🔍 Hand detection loop started');
+            }
+            
+            detectHands() {
+                if (!this.video.videoWidth || !this.video.videoHeight) return;
+                
+                const now = Date.now();
+                if (now - this.lastDetectionTime < 100) return; // Throttle to 10 FPS
+                this.lastDetectionTime = now;
+                
+                // Set detection canvas to match video aspect ratio
+                const videoAspect = this.video.videoWidth / this.video.videoHeight;
+                const canvasAspect = this.detectionCanvas.width / this.detectionCanvas.height;
+                
+                let drawWidth = this.detectionCanvas.width;
+                let drawHeight = this.detectionCanvas.height;
+                let offsetX = 0;
+                let offsetY = 0;
+                
+                if (videoAspect > canvasAspect) {
+                    drawHeight = this.detectionCanvas.width / videoAspect;
+                    offsetY = (this.detectionCanvas.height - drawHeight) / 2;
+                } else {
+                    drawWidth = this.detectionCanvas.height * videoAspect;
+                    offsetX = (this.detectionCanvas.width - drawWidth) / 2;
+                }
+                
+                // Draw video frame to detection canvas
+                this.detectionCtx.drawImage(this.video, offsetX, offsetY, drawWidth, drawHeight);
+                
+                // Get image data for analysis
+                const imageData = this.detectionCtx.getImageData(0, 0, this.detectionCanvas.width, this.detectionCanvas.height);
+                
+                // Detect hand-like regions using color and motion
+                const handRegions = this.findHandRegions(imageData);
+                
+                // Clear previous indicators
+                document.querySelectorAll('.hand-indicator, .pinch-indicator').forEach(el => el.remove());
+                
+                // Process hand regions for pinch detection
+                this.processHandRegions(handRegions);
+                
+                // Clear detection canvas if not showing
+                if (!this.showDetection) {
+                    this.detectionCtx.clearRect(0, 0, this.detectionCanvas.width, this.detectionCanvas.height);
                 }
             }
             
-            checkPinchEnd() {
-                const touchIds = Object.keys(this.touches);
-                const activePinchIds = Array.from(this.activePinches.keys());
+            findHandRegions(imageData) {
+                const width = imageData.width;
+                const height = imageData.height;
+                const data = imageData.data;
+                const regions = [];
                 
-                // End pinches that no longer have both touches active
-                activePinchIds.forEach(pinchId => {
-                    const [id1, id2] = pinchId.split('-');
-                    if (!touchIds.includes(id1) || !touchIds.includes(id2)) {
-                        this.endPinch(pinchId);
+                // Simple skin color detection
+                const skinPixels = [];
+                
+                for (let y = 0; y < height; y += 4) {
+                    for (let x = 0; x < width; x += 4) {
+                        const index = (y * width + x) * 4;
+                        const r = data[index];
+                        const g = data[index + 1];
+                        const b = data[index + 2];
+                        
+                        // Simple skin detection (can be improved)
+                        if (this.isSkinColor(r, g, b)) {
+                            skinPixels.push({ x, y });
+                            
+                            if (this.showDetection) {
+                                this.detectionCtx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+                                this.detectionCtx.fillRect(x, y, 4, 4);
+                            }
+                        }
+                    }
+                }
+                
+                // Cluster skin pixels into hand regions
+                if (skinPixels.length > 50) {
+                    const clusters = this.clusterPixels(skinPixels, 50);
+                    
+                    clusters.forEach(cluster => {
+                        if (cluster.length > 100) { // Minimum cluster size for hand
+                            const centroid = this.calculateCentroid(cluster);
+                            const area = cluster.length;
+                            
+                            regions.push({
+                                center: centroid,
+                                area: area,
+                                pixels: cluster
+                            });
+                        }
+                    });
+                }
+                
+                return regions;
+            }
+            
+            isSkinColor(r, g, b) {
+                // Simple skin color detection - can be improved
+                const normalizedR = r / 255;
+                const normalizedG = g / 255;
+                const normalizedB = b / 255;
+                
+                // Basic skin color rules
+                return (
+                    normalizedR > 0.4 && normalizedG > 0.3 && normalizedB > 0.2 &&
+                    normalizedR > normalizedG && normalizedR > normalizedB &&
+                    Math.abs(normalizedR - normalizedG) > 0.1
+                );
+            }
+            
+            clusterPixels(pixels, maxDistance) {
+                const clusters = [];
+                const visited = new Set();
+                
+                pixels.forEach((pixel, index) => {
+                    if (!visited.has(index)) {
+                        const cluster = [];
+                        const stack = [index];
+                        
+                        while (stack.length > 0) {
+                            const currentIndex = stack.pop();
+                            if (visited.has(currentIndex)) continue;
+                            
+                            visited.add(currentIndex);
+                            const currentPixel = pixels[currentIndex];
+                            cluster.push(currentPixel);
+                            
+                            // Find nearby pixels
+                            pixels.forEach((otherPixel, otherIndex) => {
+                                if (!visited.has(otherIndex)) {
+                                    const distance = Math.sqrt(
+                                        Math.pow(currentPixel.x - otherPixel.x, 2) +
+                                        Math.pow(currentPixel.y - otherPixel.y, 2)
+                                    );
+                                    
+                                    if (distance < maxDistance) {
+                                        stack.push(otherIndex);
+                                    }
+                                }
+                            });
+                        }
+                        
+                        if (cluster.length > 20) {
+                            clusters.push(cluster);
+                        }
                     }
                 });
+                
+                return clusters;
             }
             
-            getDistance(touch1, touch2) {
-                const dx = touch1.x - touch2.x;
-                const dy = touch1.y - touch2.y;
-                return Math.sqrt(dx * dx + dy * dy);
-            }
-            
-            getMidpoint(touch1, touch2) {
+            calculateCentroid(pixels) {
+                const sumX = pixels.reduce((sum, p) => sum + p.x, 0);
+                const sumY = pixels.reduce((sum, p) => sum + p.y, 0);
+                
                 return {
-                    x: (touch1.x + touch2.x) / 2,
-                    y: (touch1.y + touch2.y) / 2
+                    x: sumX / pixels.length,
+                    y: sumY / pixels.length
                 };
             }
             
-            startPinch(touch1, touch2, pinchId) {
-                const midpoint = this.getMidpoint(touch1, touch2);
-                const distance = this.getDistance(touch1, touch2);
+            processHandRegions(regions) {
+                this.handPositions = regions.map(region => region.center);
                 
-                this.log(`🤏 Pinch started at (${Math.round(midpoint.x)}, ${Math.round(midpoint.y)}) distance: ${Math.round(distance)}px`);
+                // Show hand indicators
+                regions.forEach((region, index) => {
+                    this.showHandIndicator(region.center, index);
+                });
                 
-                const wave = document.createElement('div');
-                wave.className = 'wave';
-                wave.style.width = '60px';
-                wave.style.height = '60px';
-                wave.style.left = (midpoint.x - 30) + 'px';
-                wave.style.top = (midpoint.y - 30) + 'px';
-                wave.id = 'wave-' + this.waveCounter++;
+                // Check for pinch gestures between hand regions
+                this.detectPinchGestures(regions);
                 
-                document.body.appendChild(wave);
+                this.status.textContent = `Tracking ${regions.length} hand region(s). Pinch to create waves!`;
+            }
+            
+            showHandIndicator(center, index) {
+                const indicator = document.createElement('div');
+                indicator.className = 'hand-indicator';
+                indicator.style.left = (center.x - 10) + 'px';
+                indicator.style.top = (center.y - 10) + 'px';
+                indicator.style.background = `hsl(${index * 120}, 70%, 50%)`;
+                document.body.appendChild(indicator);
+            }
+            
+            detectPinchGestures(regions) {
+                // Look for pairs of regions that might indicate fingertips
+                for (let i = 0; i < regions.length - 1; i++) {
+                    for (let j = i + 1; j < regions.length; j++) {
+                        const region1 = regions[i];
+                        const region2 = regions[j];
+                        
+                        const distance = Math.sqrt(
+                            Math.pow(region1.center.x - region2.center.x, 2) +
+                            Math.pow(region1.center.y - region2.center.y, 2)
+                        );
+                        
+                        const pinchId = `${i}-${j}`;
+                        
+                        // Check if regions are close enough to be a pinch
+                        if (distance < this.pinchThreshold) {
+                            if (!this.activePinches.has(pinchId)) {
+                                this.startWorldSpacePinch(region1, region2, pinchId);
+                            } else {
+                                this.updateWorldSpacePinch(region1, region2, pinchId);
+                            }
+                        } else if (this.activePinches.has(pinchId)) {
+                            this.endWorldSpacePinch(pinchId);
+                        }
+                    }
+                }
+                
+                // Clean up old pinches
+                const currentTime = Date.now();
+                this.activePinches.forEach((pinchData, pinchId) => {
+                    if (currentTime - pinchData.lastUpdate > 500) { // 500ms timeout
+                        this.endWorldSpacePinch(pinchId);
+                    }
+                });
+            }
+            
+            startWorldSpacePinch(region1, region2, pinchId) {
+                const midpoint = {
+                    x: (region1.center.x + region2.center.x) / 2,
+                    y: (region1.center.y + region2.center.y) / 2
+                };
+                
+                const distance = Math.sqrt(
+                    Math.pow(region1.center.x - region2.center.x, 2) +
+                    Math.pow(region1.center.y - region2.center.y, 2)
+                );
+                
+                this.log(`🤏 World space pinch detected at (${Math.round(midpoint.x)}, ${Math.round(midpoint.y)})`);
+                
+                // Create pinch indicator
+                const pinchIndicator = document.createElement('div');
+                pinchIndicator.className = 'pinch-indicator';
+                pinchIndicator.style.left = (midpoint.x - 15) + 'px';
+                pinchIndicator.style.top = (midpoint.y - 15) + 'px';
+                pinchIndicator.id = 'pinch-' + pinchId;
+                document.body.appendChild(pinchIndicator);
+                
+                // Create 3D wave in world space
+                const wave = this.create3DWave(midpoint, distance);
                 
                 this.activePinches.set(pinchId, {
                     wave: wave,
-                    startDistance: distance,
-                    startTime: Date.now()
+                    indicator: pinchIndicator,
+                    startTime: Date.now(),
+                    lastUpdate: Date.now(),
+                    startDistance: distance
                 });
                 
-                this.status.textContent = 'Pinch detected! Creating liquid wave...';
-                
-                // Scale wave based on pinch tightness
-                const scale = Math.max(0.5, Math.min(2.0, (80 - distance) / 30));
-                const size = 40 + (scale * 40);
-                wave.style.width = size + 'px';
-                wave.style.height = size + 'px';
-                wave.style.left = (midpoint.x - size/2) + 'px';
-                wave.style.top = (midpoint.y - size/2) + 'px';
+                this.status.textContent = 'Pinch detected in 3D space! Creating liquid wave...';
             }
             
-            updatePinch(touch1, touch2, pinchId) {
+            updateWorldSpacePinch(region1, region2, pinchId) {
                 const pinchData = this.activePinches.get(pinchId);
                 if (!pinchData) return;
                 
-                const midpoint = this.getMidpoint(touch1, touch2);
-                const distance = this.getDistance(touch1, touch2);
-                const wave = pinchData.wave;
+                const midpoint = {
+                    x: (region1.center.x + region2.center.x) / 2,
+                    y: (region1.center.y + region2.center.y) / 2
+                };
                 
-                // Update wave position to follow pinch midpoint
-                const scale = Math.max(0.5, Math.min(2.0, (80 - distance) / 30));
-                const size = 40 + (scale * 40);
+                const distance = Math.sqrt(
+                    Math.pow(region1.center.x - region2.center.x, 2) +
+                    Math.pow(region1.center.y - region2.center.y, 2)
+                );
+                
+                pinchData.lastUpdate = Date.now();
+                
+                // Update indicator position
+                pinchData.indicator.style.left = (midpoint.x - 15) + 'px';
+                pinchData.indicator.style.top = (midpoint.y - 15) + 'px';
+                
+                // Update wave position and properties
+                this.update3DWave(pinchData.wave, midpoint, distance);
+            }
+            
+            endWorldSpacePinch(pinchId) {
+                const pinchData = this.activePinches.get(pinchId);
+                if (!pinchData) return;
+                
+                const duration = Date.now() - pinchData.startTime;
+                this.log(`✨ World space pinch ended after ${duration}ms - solidifying wave`);
+                
+                // Remove indicator
+                if (pinchData.indicator && pinchData.indicator.parentNode) {
+                    pinchData.indicator.parentNode.removeChild(pinchData.indicator);
+                }
+                
+                // Solidify wave
+                pinchData.wave.classList.add('solid');
+                
+                this.activePinches.delete(pinchId);
+                
+                this.status.textContent = 'World space pinch ended! Wave solidified in 3D space!';
+                
+                // Auto-remove after 20 seconds
+                setTimeout(() => {
+                    if (pinchData.wave && pinchData.wave.parentNode) {
+                        pinchData.wave.style.transition = 'opacity 3s';
+                        pinchData.wave.style.opacity = '0';
+                        setTimeout(() => {
+                            if (pinchData.wave.parentNode) {
+                                pinchData.wave.parentNode.removeChild(pinchData.wave);
+                            }
+                        }, 3000);
+                    }
+                }, 20000);
+            }
+            
+            create3DWave(position, pinchDistance) {
+                const wave = document.createElement('div');
+                wave.className = 'wave-3d';
+                wave.id = 'wave-3d-' + this.waveCounter++;
+                
+                // Calculate 3D-like positioning and scaling
+                const depthFactor = Math.max(0.5, Math.min(2.0, (50 - pinchDistance) / 20));
+                const size = 60 + (depthFactor * 40);
                 
                 wave.style.width = size + 'px';
                 wave.style.height = size + 'px';
-                wave.style.left = (midpoint.x - size/2) + 'px';
-                wave.style.top = (midpoint.y - size/2) + 'px';
+                wave.style.left = (position.x - size/2) + 'px';
+                wave.style.top = (position.y - size/2) + 'px';
                 
-                // Add extra animation intensity based on pinch strength
-                if (distance < 30) {
-                    wave.style.animationDuration = '1s';
-                } else if (distance < 40) {
+                // Add depth-based effects
+                wave.style.filter = `blur(${(2 - depthFactor)}px)`;
+                wave.style.transform = `scale(${depthFactor})`;
+                
+                document.body.appendChild(wave);
+                
+                return wave;
+            }
+            
+            update3DWave(wave, position, pinchDistance) {
+                const depthFactor = Math.max(0.5, Math.min(2.0, (50 - pinchDistance) / 20));
+                const size = 60 + (depthFactor * 40);
+                
+                wave.style.width = size + 'px';
+                wave.style.height = size + 'px';
+                wave.style.left = (position.x - size/2) + 'px';
+                wave.style.top = (position.y - size/2) + 'px';
+                wave.style.filter = `blur(${(2 - depthFactor)}px)`;
+                wave.style.transform = `scale(${depthFactor})`;
+                
+                // Adjust animation speed based on pinch tightness
+                if (pinchDistance < 20) {
                     wave.style.animationDuration = '1.5s';
-                } else {
+                } else if (pinchDistance < 30) {
                     wave.style.animationDuration = '2s';
+                } else {
+                    wave.style.animationDuration = '3s';
                 }
             }
             
-            endPinch(pinchId) {
-                const pinchData = this.activePinches.get(pinchId);
-                if (!pinchData) return;
-                
-                const wave = pinchData.wave;
-                const duration = Date.now() - pinchData.startTime;
-                
-                this.log(`✨ Pinch ended after ${duration}ms - solidifying wave: ${wave.id}`);
-                
-                wave.classList.add('solid');
-                this.activePinches.delete(pinchId);
-                
-                this.status.textContent = 'Pinch released! Wave solidified. Pinch again to create more!';
-                
-                // Auto-remove after 30 seconds
-                setTimeout(() => {
-                    if (wave && wave.parentNode) {
-                        wave.style.transition = 'opacity 2s';
-                        wave.style.opacity = '0';
-                        setTimeout(() => {
-                            if (wave.parentNode) {
-                                wave.parentNode.removeChild(wave);
-                            }
-                        }, 2000);
-                    }
-                }, 30000);
+            // Control methods
+            toggleDetectionView() {
+                this.showDetection = !this.showDetection;
+                this.log(`🔍 Detection view: ${this.showDetection ? 'ON' : 'OFF'}`);
+            }
+            
+            clearAllWaves() {
+                document.querySelectorAll('.wave-3d').forEach(wave => {
+                    wave.parentNode.removeChild(wave);
+                });
+                this.activePinches.clear();
+                this.log('🧹 All waves cleared');
+            }
+            
+            calibrateDepth() {
+                this.pinchThreshold = this.pinchThreshold === 30 ? 50 : 30;
+                this.log(`🎯 Pinch threshold: ${this.pinchThreshold}px`);
             }
         }
         
-        // Initialize when page loads
+        // Initialize the app
+        let app;
         document.addEventListener('DOMContentLoaded', () => {
-            new LiquidWaveAR();
+            app = new WorldSpacePinchAR();
         });
         
-        // Prevent zoom on double tap
-        let lastTouchEnd = 0;
-        document.addEventListener('touchend', function (event) {
-            const now = (new Date()).getTime();
-            if (now - lastTouchEnd <= 300) {
-                event.preventDefault();
-            }
-            lastTouchEnd = now;
-        }, false);
+        // Prevent zoom and scrolling
+        document.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+        }, { passive: false });
         
-        // Handle orientation changes
-        window.addEventListener('orientationchange', () => {
-            setTimeout(() => {
-                location.reload();
-            }, 500);
+        document.addEventListener('gesturestart', (e) => {
+            e.preventDefault();
         });
     </script>
 </body>
