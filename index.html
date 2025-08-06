@@ -2,286 +2,354 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Debug Liquid Wave WebAR</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Pure JS Liquid Wave WebAR</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
     <style>
         body {
             margin: 0;
+            padding: 0;
+            overflow: hidden;
             font-family: Arial, sans-serif;
             background: #000;
             color: white;
+            touch-action: none;
         }
         
-        #debug-info {
+        #camera-view {
             position: fixed;
-            top: 10px;
-            left: 10px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.9);
-            color: #00ff00;
-            padding: 10px;
-            border-radius: 5px;
-            z-index: 2000;
-            font-size: 12px;
-            font-family: monospace;
-            max-height: 200px;
-            overflow-y: auto;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            z-index: 1;
         }
         
-        #manual-test {
+        #canvas-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 2;
+            pointer-events: none;
+        }
+        
+        #instructions {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            z-index: 100;
+            text-align: center;
+            font-size: 14px;
+        }
+        
+        #status {
             position: fixed;
             bottom: 20px;
             left: 20px;
             right: 20px;
             background: rgba(255, 0, 255, 0.8);
-            padding: 15px;
-            border-radius: 10px;
-            z-index: 2000;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
             text-align: center;
+            font-size: 12px;
         }
         
-        button {
-            background: #ff00ff;
-            color: white;
-            border: none;
-            padding: 10px 20px;
+        #debug {
+            position: fixed;
+            top: 120px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #00ff00;
+            padding: 10px;
             border-radius: 5px;
-            font-size: 16px;
-            margin: 5px;
+            z-index: 100;
+            font-size: 10px;
+            font-family: monospace;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+        
+        .wave {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,0,255,0.8), rgba(255,0,255,0.3));
+            box-shadow: 0 0 20px #ff00ff, inset 0 0 20px rgba(255,255,255,0.2);
+            animation: liquidWave 2s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 3;
+        }
+        
+        .wave.solid {
+            animation: none;
+            background: radial-gradient(circle, rgba(255,0,255,0.9), rgba(255,0,255,0.5));
+            box-shadow: 0 0 30px #ff00ff, inset 0 0 30px rgba(255,255,255,0.3);
+        }
+        
+        @keyframes liquidWave {
+            0% { 
+                transform: scale(1) rotate(0deg); 
+                border-radius: 50%; 
+            }
+            25% { 
+                transform: scale(1.2) rotate(90deg); 
+                border-radius: 60% 40% 60% 40%; 
+            }
+            50% { 
+                transform: scale(1.1) rotate(180deg); 
+                border-radius: 40% 60% 40% 60%; 
+            }
+            75% { 
+                transform: scale(1.3) rotate(270deg); 
+                border-radius: 70% 30% 70% 30%; 
+            }
+            100% { 
+                transform: scale(1) rotate(360deg); 
+                border-radius: 50%; 
+            }
+        }
+        
+        #touch-area {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 4;
+            background: transparent;
         }
     </style>
 </head>
 <body>
-    <div id="debug-info">
-        <div>🔍 Debug Console:</div>
-        <div id="debug-log">Starting debug...</div>
+    <video id="camera-view" autoplay playsinline muted></video>
+    <canvas id="canvas-overlay"></canvas>
+    
+    <div id="instructions">
+        <strong>🌊 Pure JS Liquid Wave WebAR</strong><br>
+        Tap and hold to create liquid waves!<br>
+        Release to solidify them in place.
     </div>
     
-    <div id="manual-test">
-        <div>Manual Test Mode</div>
-        <button onclick="createTestWave()">Create Test Wave</button>
-        <button onclick="clearWaves()">Clear Waves</button>
-        <button onclick="testCamera()">Test Camera</button>
-    </div>
+    <div id="status">Initializing camera...</div>
+    
+    <div id="debug">Debug info will appear here...</div>
+    
+    <div id="touch-area"></div>
 
-    <!-- Basic A-Frame scene for testing -->
-    <a-scene 
-        id="scene"
-        embedded 
-        style="height: 100vh; width: 100vw;"
-        background="color: #001122"
-        vr-mode-ui="enabled: false">
-        
-        <a-assets>
-            <a-mixin id="wave-material"
-                material="color: #ff00ff; transparent: true; opacity: 0.6; metalness: 0.3; roughness: 0.4;">
-            </a-mixin>
-        </a-assets>
-        
-        <a-light type="ambient" color="#404040"></a-light>
-        <a-light type="directional" position="2 4 5" color="#ffffff"></a-light>
-        
-        <a-camera position="0 1.6 3" look-controls wasd-controls></a-camera>
-        
-        <a-entity id="wave-container"></a-entity>
-        
-        <!-- Test objects to verify scene is working -->
-        <a-box position="-1 0.5 -3" rotation="0 45 0" color="#ff0000" scale="0.5 0.5 0.5"></a-box>
-        <a-sphere position="0 1.25 -5" radius="0.3" color="#00ff00"></a-sphere>
-        <a-cylinder position="1 0.75 -3" radius="0.3" height="1.5" color="#0000ff"></a-cylinder>
-        <a-plane position="0 0 -4" rotation="-90 0 0" width="4" height="4" color="#333333"></a-plane>
-    </a-scene>
-
-    <!-- Load A-Frame with fallback -->
-    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <script>
-        // Fallback A-Frame loader
-        function loadAFrameWithFallback() {
-            if (typeof AFRAME !== 'undefined') {
-                log('✅ A-Frame loaded from primary CDN');
-                return;
+        class LiquidWaveAR {
+            constructor() {
+                this.video = document.getElementById('camera-view');
+                this.canvas = document.getElementById('canvas-overlay');
+                this.ctx = this.canvas.getContext('2d');
+                this.status = document.getElementById('status');
+                this.debug = document.getElementById('debug');
+                this.touchArea = document.getElementById('touch-area');
+                
+                this.waves = [];
+                this.activeWaves = new Map(); // Track touch ID to wave
+                this.waveCounter = 0;
+                
+                this.init();
             }
             
-            log('⚠️ Trying fallback A-Frame CDN...');
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.0/aframe.min.js';
-            script.onload = function() {
-                log('✅ A-Frame loaded from fallback CDN');
-                initScene();
-            };
-            script.onerror = function() {
-                log('❌ Both A-Frame CDNs failed');
-                showManualMode();
-            };
-            document.head.appendChild(script);
-        }
-
-        function initScene() {
-            // Create A-Frame scene programmatically if needed
-            setTimeout(() => {
-                const scene = document.querySelector('a-scene');
-                if (scene) {
-                    scene.addEventListener('loaded', function() {
-                        log('✅ A-Frame scene loaded');
-                        log('🎯 You should see: red cube, green sphere, blue cylinder');
+            log(message) {
+                console.log(message);
+                this.debug.innerHTML += new Date().toLocaleTimeString() + ': ' + message + '<br>';
+                this.debug.scrollTop = this.debug.scrollHeight;
+            }
+            
+            async init() {
+                this.log('🚀 Initializing Pure JS WebAR...');
+                
+                // Setup canvas
+                this.resizeCanvas();
+                window.addEventListener('resize', () => this.resizeCanvas());
+                
+                // Setup camera
+                await this.setupCamera();
+                
+                // Setup touch events
+                this.setupTouchEvents();
+                
+                this.log('✅ WebAR initialized successfully!');
+                this.status.textContent = 'Ready! Tap and hold to create liquid waves!';
+            }
+            
+            resizeCanvas() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+                this.log(`📐 Canvas resized: ${this.canvas.width}x${this.canvas.height}`);
+            }
+            
+            async setupCamera() {
+                try {
+                    this.log('📷 Requesting camera access...');
+                    
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: 'environment', // Back camera
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
                     });
-                } else {
-                    log('❌ Scene element not found');
-                    createManualScene();
+                    
+                    this.video.srcObject = stream;
+                    await this.video.play();
+                    
+                    this.log('✅ Camera started successfully!');
+                    this.status.textContent = 'Camera active! Tap to create waves!';
+                    
+                } catch (error) {
+                    this.log('❌ Camera error: ' + error.message);
+                    this.status.textContent = 'Camera error: ' + error.message;
+                    
+                    // Fallback: show gradient background
+                    document.body.style.background = 'linear-gradient(45deg, #ff00ff, #0000ff)';
+                    this.video.style.display = 'none';
                 }
-            }, 500);
-        }
-
-        function createManualScene() {
-            log('🔧 Creating manual fallback scene...');
-            const sceneEl = document.getElementById('scene');
-            if (!sceneEl) {
-                log('❌ Scene container missing');
-                return;
             }
             
-            // Change background to indicate fallback mode
-            sceneEl.style.background = 'linear-gradient(45deg, #ff00ff, #0000ff)';
-            
-            // Add manual test content
-            const testDiv = document.createElement('div');
-            testDiv.innerHTML = `
-                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px;">
-                    <h2>🎯 Fallback Mode</h2>
-                    <p>A-Frame couldn't load, but camera works!</p>
-                    <p>WebAR features are available.</p>
-                    <div style="width: 50px; height: 50px; background: #ff00ff; margin: 10px auto; border-radius: 50%; animation: pulse 2s infinite;"></div>
-                </div>
-                <style>
-                    @keyframes pulse {
-                        0% { transform: scale(1); opacity: 1; }
-                        50% { transform: scale(1.2); opacity: 0.7; }
-                        100% { transform: scale(1); opacity: 1; }
+            setupTouchEvents() {
+                this.log('👆 Setting up touch events...');
+                
+                // Touch start - create wave
+                this.touchArea.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    
+                    for (let i = 0; i < e.touches.length; i++) {
+                        const touch = e.touches[i];
+                        this.createWave(touch.clientX, touch.clientY, touch.identifier);
                     }
-                </style>
-            `;
-            sceneEl.appendChild(testDiv);
-            log('✅ Manual fallback scene created');
-        }
-
-        function showManualMode() {
-            log('🎯 Switching to manual mode...');
-            document.body.style.background = 'radial-gradient(circle, #ff00ff, #000000)';
-            
-            const manualDiv = document.createElement('div');
-            manualDiv.style.cssText = `
-                position: fixed; 
-                top: 50%; 
-                left: 50%; 
-                transform: translate(-50%, -50%); 
-                text-align: center; 
-                color: white; 
-                background: rgba(0,0,0,0.9); 
-                padding: 30px; 
-                border-radius: 15px;
-                border: 2px solid #ff00ff;
-            `;
-            manualDiv.innerHTML = `
-                <h2>🚀 Manual WebAR Mode</h2>
-                <p>A-Frame had loading issues, but your device supports WebAR!</p>
-                <div style="width: 100px; height: 100px; background: linear-gradient(45deg, #ff00ff, #00ffff); margin: 20px auto; border-radius: 50%; animation: rotate 3s linear infinite;"></div>
-                <p>Camera: ✅ | HTTPS: ✅ | Mobile: ✅</p>
-                <style>
-                    @keyframes rotate {
-                        from { transform: rotate(0deg); }
-                        to { transform: rotate(360deg); }
+                }, { passive: false });
+                
+                // Touch move - update wave position
+                this.touchArea.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    
+                    for (let i = 0; i < e.touches.length; i++) {
+                        const touch = e.touches[i];
+                        this.updateWave(touch.clientX, touch.clientY, touch.identifier);
                     }
-                </style>
-            `;
-            document.body.appendChild(manualDiv);
-        }
-
-        let debugLog = document.getElementById('debug-log');
-        let waveCounter = 0;
-        
-        function log(message) {
-            console.log(message);
-            debugLog.innerHTML += '<br>' + new Date().toLocaleTimeString() + ': ' + message;
-            debugLog.scrollTop = debugLog.scrollHeight;
-        }
-
-        function createTestWave() {
-            log('Creating test wave...');
-            const container = document.getElementById('wave-container');
-            if (!container) {
-                log('❌ Wave container not found!');
-                return;
-            }
-            
-            const wave = document.createElement('a-sphere');
-            wave.setAttribute('position', `${Math.random()*2-1} ${1 + Math.random()} ${-3 + Math.random()*2}`);
-            wave.setAttribute('radius', '0.2');
-            wave.setAttribute('material', 'color: #ff00ff; transparent: true; opacity: 0.7;');
-            wave.setAttribute('animation', 'property: rotation; to: 0 360 0; loop: true; dur: 2000;');
-            wave.setAttribute('id', 'test-wave-' + waveCounter++);
-            
-            container.appendChild(wave);
-            log('✅ Test wave created at position: ' + wave.getAttribute('position'));
-        }
-
-        function clearWaves() {
-            log('Clearing all waves...');
-            const container = document.getElementById('wave-container');
-            if (container) {
-                container.innerHTML = '';
-                log('✅ All waves cleared');
-            }
-        }
-
-        function testCamera() {
-            log('Testing camera access...');
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        facingMode: 'environment' // Back camera
-                    } 
-                })
-                .then(function(stream) {
-                    log('✅ Camera access granted!');
-                    // Stop the stream since we just wanted to test
-                    stream.getTracks().forEach(track => track.stop());
-                })
-                .catch(function(err) {
-                    log('❌ Camera error: ' + err.message);
+                }, { passive: false });
+                
+                // Touch end - solidify wave
+                this.touchArea.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    
+                    for (let i = 0; i < e.changedTouches.length; i++) {
+                        const touch = e.changedTouches[i];
+                        this.solidifyWave(touch.identifier);
+                    }
+                }, { passive: false });
+                
+                // Mouse events for desktop testing
+                this.touchArea.addEventListener('mousedown', (e) => {
+                    this.createWave(e.clientX, e.clientY, 'mouse');
                 });
-            } else {
-                log('❌ Camera API not supported');
+                
+                this.touchArea.addEventListener('mousemove', (e) => {
+                    if (e.buttons === 1) { // Left button pressed
+                        this.updateWave(e.clientX, e.clientY, 'mouse');
+                    }
+                });
+                
+                this.touchArea.addEventListener('mouseup', (e) => {
+                    this.solidifyWave('mouse');
+                });
+                
+                this.log('✅ Touch events ready!');
+            }
+            
+            createWave(x, y, touchId) {
+                this.log(`🌊 Creating wave at (${x}, ${y})`);
+                
+                const wave = document.createElement('div');
+                wave.className = 'wave';
+                wave.style.width = '60px';
+                wave.style.height = '60px';
+                wave.style.left = (x - 30) + 'px';
+                wave.style.top = (y - 30) + 'px';
+                wave.id = 'wave-' + this.waveCounter++;
+                
+                document.body.appendChild(wave);
+                this.activeWaves.set(touchId, wave);
+                
+                this.status.textContent = 'Creating liquid wave... Hold and drag!';
+                
+                // Add some random variation
+                const size = 40 + Math.random() * 40;
+                wave.style.width = size + 'px';
+                wave.style.height = size + 'px';
+                wave.style.left = (x - size/2) + 'px';
+                wave.style.top = (y - size/2) + 'px';
+            }
+            
+            updateWave(x, y, touchId) {
+                const wave = this.activeWaves.get(touchId);
+                if (!wave) return;
+                
+                const size = parseFloat(wave.style.width);
+                wave.style.left = (x - size/2) + 'px';
+                wave.style.top = (y - size/2) + 'px';
+            }
+            
+            solidifyWave(touchId) {
+                const wave = this.activeWaves.get(touchId);
+                if (!wave) return;
+                
+                this.log(`✨ Solidifying wave: ${wave.id}`);
+                
+                wave.classList.add('solid');
+                this.activeWaves.delete(touchId);
+                
+                this.status.textContent = 'Wave solidified! Tap to create more waves!';
+                
+                // Auto-remove after 30 seconds
+                setTimeout(() => {
+                    if (wave && wave.parentNode) {
+                        wave.style.transition = 'opacity 2s';
+                        wave.style.opacity = '0';
+                        setTimeout(() => {
+                            if (wave.parentNode) {
+                                wave.parentNode.removeChild(wave);
+                            }
+                        }, 2000);
+                    }
+                }, 30000);
             }
         }
-
-        // Check what's available
-        window.addEventListener('load', function() {
-            log('🚀 Page loaded');
-            
-            // Check if running on mobile
-            const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            log('📱 Mobile device: ' + isMobile);
-            
-            // Check HTTPS
-            log('🔒 HTTPS: ' + (location.protocol === 'https:'));
-            
-            // Try to load A-Frame with fallback
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new LiquidWaveAR();
+        });
+        
+        // Prevent zoom on double tap
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function (event) {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+        
+        // Handle orientation changes
+        window.addEventListener('orientationchange', () => {
             setTimeout(() => {
-                loadAFrameWithFallback();
+                location.reload();
             }, 500);
         });
-
-        // Catch any errors
-        window.addEventListener('error', function(e) {
-            log('❌ JavaScript Error: ' + e.message);
-        });
-
-        // Log console errors
-        const originalConsoleError = console.error;
-        console.error = function(message) {
-            log('❌ Console Error: ' + message);
-            originalConsoleError.apply(console, arguments);
-        };
     </script>
 </body>
 </html>
