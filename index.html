@@ -226,7 +226,7 @@
     
     <div id="instructions" style="display: none;">
         <strong>🌊 World Space Pinch WebAR</strong><br>
-        Hold your hand in front of the camera and pinch your thumb and index finger!<br>
+        Point the back camera at your hand and pinch your thumb and index finger!<br>
         The liquid wave will appear in 3D space where you pinch.
     </div>
     
@@ -414,7 +414,7 @@
                     
                     const stream = await navigator.mediaDevices.getUserMedia({
                         video: {
-                            facingMode: 'user', // Front camera works better for hand tracking
+                            facingMode: 'environment', // Back camera for natural hand tracking
                             width: { ideal: 640, max: 1280 },
                             height: { ideal: 480, max: 720 }
                         }
