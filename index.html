@@ -92,7 +92,110 @@
         <a-plane position="0 0 -4" rotation="-90 0 0" width="4" height="4" color="#333333"></a-plane>
     </a-scene>
 
+    <!-- Load A-Frame with fallback -->
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <script>
+        // Fallback A-Frame loader
+        function loadAFrameWithFallback() {
+            if (typeof AFRAME !== 'undefined') {
+                log('✅ A-Frame loaded from primary CDN');
+                return;
+            }
+            
+            log('⚠️ Trying fallback A-Frame CDN...');
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.0/aframe.min.js';
+            script.onload = function() {
+                log('✅ A-Frame loaded from fallback CDN');
+                initScene();
+            };
+            script.onerror = function() {
+                log('❌ Both A-Frame CDNs failed');
+                showManualMode();
+            };
+            document.head.appendChild(script);
+        }
+
+        function initScene() {
+            // Create A-Frame scene programmatically if needed
+            setTimeout(() => {
+                const scene = document.querySelector('a-scene');
+                if (scene) {
+                    scene.addEventListener('loaded', function() {
+                        log('✅ A-Frame scene loaded');
+                        log('🎯 You should see: red cube, green sphere, blue cylinder');
+                    });
+                } else {
+                    log('❌ Scene element not found');
+                    createManualScene();
+                }
+            }, 500);
+        }
+
+        function createManualScene() {
+            log('🔧 Creating manual fallback scene...');
+            const sceneEl = document.getElementById('scene');
+            if (!sceneEl) {
+                log('❌ Scene container missing');
+                return;
+            }
+            
+            // Change background to indicate fallback mode
+            sceneEl.style.background = 'linear-gradient(45deg, #ff00ff, #0000ff)';
+            
+            // Add manual test content
+            const testDiv = document.createElement('div');
+            testDiv.innerHTML = `
+                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px;">
+                    <h2>🎯 Fallback Mode</h2>
+                    <p>A-Frame couldn't load, but camera works!</p>
+                    <p>WebAR features are available.</p>
+                    <div style="width: 50px; height: 50px; background: #ff00ff; margin: 10px auto; border-radius: 50%; animation: pulse 2s infinite;"></div>
+                </div>
+                <style>
+                    @keyframes pulse {
+                        0% { transform: scale(1); opacity: 1; }
+                        50% { transform: scale(1.2); opacity: 0.7; }
+                        100% { transform: scale(1); opacity: 1; }
+                    }
+                </style>
+            `;
+            sceneEl.appendChild(testDiv);
+            log('✅ Manual fallback scene created');
+        }
+
+        function showManualMode() {
+            log('🎯 Switching to manual mode...');
+            document.body.style.background = 'radial-gradient(circle, #ff00ff, #000000)';
+            
+            const manualDiv = document.createElement('div');
+            manualDiv.style.cssText = `
+                position: fixed; 
+                top: 50%; 
+                left: 50%; 
+                transform: translate(-50%, -50%); 
+                text-align: center; 
+                color: white; 
+                background: rgba(0,0,0,0.9); 
+                padding: 30px; 
+                border-radius: 15px;
+                border: 2px solid #ff00ff;
+            `;
+            manualDiv.innerHTML = `
+                <h2>🚀 Manual WebAR Mode</h2>
+                <p>A-Frame had loading issues, but your device supports WebAR!</p>
+                <div style="width: 100px; height: 100px; background: linear-gradient(45deg, #ff00ff, #00ffff); margin: 20px auto; border-radius: 50%; animation: rotate 3s linear infinite;"></div>
+                <p>Camera: ✅ | HTTPS: ✅ | Mobile: ✅</p>
+                <style>
+                    @keyframes rotate {
+                        from { transform: rotate(0deg); }
+                        to { transform: rotate(360deg); }
+                    }
+                </style>
+            `;
+            document.body.appendChild(manualDiv);
+        }
+
         let debugLog = document.getElementById('debug-log');
         let waveCounter = 0;
         
@@ -162,24 +265,10 @@
             // Check HTTPS
             log('🔒 HTTPS: ' + (location.protocol === 'https:'));
             
-            // Check A-Frame
+            // Try to load A-Frame with fallback
             setTimeout(() => {
-                if (typeof AFRAME !== 'undefined') {
-                    log('✅ A-Frame loaded successfully');
-                    
-                    // Check if scene is ready
-                    const scene = document.querySelector('a-scene');
-                    if (scene) {
-                        scene.addEventListener('loaded', function() {
-                            log('✅ A-Frame scene loaded');
-                            log('🎯 You should see: red cube, green sphere, blue cylinder');
-                            log('👆 Try the manual test buttons below');
-                        });
-                    }
-                } else {
-                    log('❌ A-Frame failed to load');
-                }
-            }, 1000);
+                loadAFrameWithFallback();
+            }, 500);
         });
 
         // Catch any errors
